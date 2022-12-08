@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinS_ABIS_APi.ABIS_API
+namespace IRIS_WinService.ABIS_API
 {
       public class ImageConfigure
     {

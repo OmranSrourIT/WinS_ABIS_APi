@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinS_ABIS_APi.HandleingCalsses
+namespace IRIS_WinService.HandleingCalsses
 {
     class CHostDBCtrl
     {

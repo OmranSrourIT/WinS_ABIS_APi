@@ -8,9 +8,9 @@ using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Http;
-using WinS_ABIS_APi.ABIS_API;
+using IRIS_WinService.ABIS_API;
 
-namespace WinS_ABIS_APi
+namespace IRIS_WinService
 {
     static class Program
     {

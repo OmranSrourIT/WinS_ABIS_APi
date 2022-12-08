@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.32602.291
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinS_ABIS_APi", "WinS_ABIS_APi\WinS_ABIS_APi.csproj", "{C4EBCFC8-DB85-4C49-BB7E-D46DA01B7DED}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IRIS_WinService", "WinS_ABIS_APi\IRIS_WinService.csproj", "{C4EBCFC8-DB85-4C49-BB7E-D46DA01B7DED}"
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "IRISCameraWinSetup", "IRISCameraWinSetup\IRISCameraWinSetup.vdproj", "{F2A3E11B-7D91-4753-82E1-EE0659FE6B38}"
 EndProject

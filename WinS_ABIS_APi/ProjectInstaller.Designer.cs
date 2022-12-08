@@ -1,7 +1,7 @@
 ﻿
 using System.ServiceProcess;
 
-namespace WinS_ABIS_APi
+namespace IRIS_WinService
 {
     partial class ProjectInstaller
     {
@@ -42,11 +42,11 @@ namespace WinS_ABIS_APi
             // 
             // serviceInstaller1
             // 
-              
-            this.serviceInstaller1.Description = "ABIS_Service_Demo";
+
+            this.serviceInstaller1.Description = "IRISWinService";
             this.serviceInstaller1.StartType = ServiceStartMode.Automatic;
-            this.serviceInstaller1.DisplayName = "ABIS_Service Demo";
-            this.serviceInstaller1.ServiceName = "Service1";
+            this.serviceInstaller1.DisplayName = "IRISWinService";
+            this.serviceInstaller1.ServiceName = "IRIS_Service";
             // 
             // ProjectInstaller
             // 

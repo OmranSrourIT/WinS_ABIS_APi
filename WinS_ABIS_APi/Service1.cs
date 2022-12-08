@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Configuration;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
@@ -16,10 +17,11 @@ using System.Threading.Tasks;
 using System.Timers;
 using System.Web.Http;
 using System.Web.Http.SelfHost;
-using WinS_ABIS_APi.ABIS_API;
-using WinS_ABIS_APi.HandleingCalsses;
+using IRIS_WinService.ABIS_API;
+using IRIS_WinService.HandleingCalsses;
+using IRIS_WinService;
 
-namespace WinS_ABIS_APi
+namespace IRIS_WinService
 {
     public partial class Service1 : ServiceBase
     {
@@ -78,56 +80,93 @@ namespace WinS_ABIS_APi
         public Service1()
         {
 
-            HomeController obj = new HomeController();
-          
-            InitializeComponent();
-            WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.OnGetLiveImage += new _IR100DeviceControlEvents_OnGetLiveImageEventHandler(OnGetLiveImage); 
-            WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.OnGetIrisImage += new _IR100DeviceControlEvents_OnGetIrisImageEventHandler(OnGetIrisImage);  
-            WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.OnMatchReport += new _IR100DeviceControlEvents_OnMatchReportEventHandler(OnMatchReport);
-            WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.OnCaptureReport += new _IR100DeviceControlEvents_OnCaptureReportEventHandler(OnCaptureReport);
+            try
+            {
+                HomeController obj = new HomeController();
 
+                InitializeComponent();
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.OnGetLiveImage += new _IR100DeviceControlEvents_OnGetLiveImageEventHandler(OnGetLiveImage);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnGetIrisImage += new _IR100DeviceControlEvents_OnGetIrisImageEventHandler(OnGetIrisImage);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnMatchReport += new _IR100DeviceControlEvents_OnMatchReportEventHandler(OnMatchReport);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnCaptureReport += new _IR100DeviceControlEvents_OnCaptureReportEventHandler(OnCaptureReport);
+
+
+            }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+            }
+
+            
 
         }
         ImageConverter imgcvt = new ImageConverter();
         private void OnGetLiveImage(int nImageSize, object objLiveImage)
         {
-            
-            var xxx = (System.Drawing.Image)imgcvt.ConvertFrom(objLiveImage);
+            try
+            {
+                var xxx = (System.Drawing.Image)imgcvt.ConvertFrom(objLiveImage);
 
-            var Con = Convert.ToBase64String((byte[])objLiveImage);
-            var ImageUrl = Con;
-            //IMAGE_IRIS.Src = ImageUrl;
-            OBJIMAG.IMAGE_Arr = ImageUrl;
-            InserImage.Add(OBJIMAG);
+                var Con = Convert.ToBase64String((byte[])objLiveImage);
+                var ImageUrl = Con;
+                //IMAGE_IRIS.Src = ImageUrl;
+                OBJIMAG.IMAGE_Arr = ImageUrl;
+                InserImage.Add(OBJIMAG);
+
+            }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+            }
+
+            
         }
 
 
         private void OnCaptureReport(int nReportResult, int nFailureCode)
         {
-            Console.WriteLine("OnCaptureReport");
-
-            var labCaptureResult = string.Empty;
-
-            m_nCaptureMode = IS_CAPTURE;
-            // initFrameIrisCamera(true);
-
-            if (nReportResult == Constants.IS_ERROR_NONE)
+           
+            try
             {
-                labCaptureResult = "[OnCaptureReport]\n  nReportResult : Success\n";
 
-                if (m_nIrisType == Constants.IS_IRIS_IMAGE)
+                var labCaptureResult = string.Empty;
+
+                m_nCaptureMode = IS_CAPTURE;
+                // initFrameIrisCamera(true);
+
+                if (nReportResult == Constants.IS_ERROR_NONE)
                 {
-                    // btnAddIrisImage.Enabled = true;
+                    labCaptureResult = "[OnCaptureReport]\n  nReportResult : Success\n";
+
+                    if (m_nIrisType == Constants.IS_IRIS_IMAGE)
+                    {
+                        // btnAddIrisImage.Enabled = true;
+                    }
+                    else if (m_nIrisType == Constants.IS_IRIS_TEMPLATE)
+                    {
+                        //  btnAddIrisTemplate.Enabled = true;
+                        // btnVerifyByTemplate.Enabled = true;
+                    }
+
                 }
-                else if (m_nIrisType == Constants.IS_IRIS_TEMPLATE)
-                {
-                    //  btnAddIrisTemplate.Enabled = true;
-                    // btnVerifyByTemplate.Enabled = true;
-                }
+                else
+                    labCaptureResult += "[OnCaptureReport]\n  FailureCode : " + ((Constants.Error)nFailureCode).ToString() + "\n";
 
             }
-            else
-                labCaptureResult += "[OnCaptureReport]\n  FailureCode : " + ((Constants.Error)nFailureCode).ToString() + "\n";
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+            }
+
 
 
         }
@@ -135,7 +174,7 @@ namespace WinS_ABIS_APi
 
         private void OnMatchReport(int nMatchType, int nReportResult, int nFailureCode, string strMatchedUserID)
         {
-            Console.WriteLine("OnMatchReport");
+            
             try
             {
                 int nResult;
@@ -162,7 +201,7 @@ namespace WinS_ABIS_APi
                         labCaptureResult = "[OnMatchReport]\n  nReportResult : Success\n";
                     }
 
-                    WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_IDENTIFIED, Constants.IS_IND_SUCCESS);
+                    IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_IDENTIFIED, Constants.IS_IND_SUCCESS);
 
                     if (nMatchType != Constants.IS_REP_VERIFY_TEMPLATE)
                     {
@@ -208,7 +247,7 @@ namespace WinS_ABIS_APi
 
                     if (nFailureCode != Constants.IS_FAIL_ABORT && nFailureCode != Constants.IS_FAIL_TIMEOUT)
                     {
-                        WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_NOT_IDENTIFY, Constants.IS_IND_FAILURE);
+                        IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_NOT_IDENTIFY, Constants.IS_IND_FAILURE);
                     }
 
                     //ProcessError(nFailureCode);
@@ -216,15 +255,18 @@ namespace WinS_ABIS_APi
                 }
 
             }
-            finally
+            catch (Exception ex)
             {
-                //    initFrameIrisCamera(true);
+                var stackTrace = new StackTrace(ex, true);
+
+              Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
             }
         }
          
         private void OnGetIrisImage(int nRightIrisFEDStatus, int nRightIrisLensStatus, int nRightIrisImageSize, object objRightIrisImage, int nLeftIrisFEDStatus, int nLeftIrisLensStatus, int nLeftIrisImageSize, object objLeftIrisImage)
         {
-            Console.WriteLine("OnGetIrisImage");
+            
 
             try
             {
@@ -236,7 +278,7 @@ namespace WinS_ABIS_APi
                     m_nEYE += Constants.IS_EYE_RIGHT;
 
                     var picRightEye = Helper.RawToBitmap((byte[])objRightIrisImage, 640, 480, PixelFormat.Format8bppIndexed);
-                    WinS_ABIS_APi.Program._capturedImage.RawRightIris = (byte[])objRightIrisImage;
+                    IRIS_WinService.Program._capturedImage.RawRightIris = (byte[])objRightIrisImage;
                      
                 }
 
@@ -245,16 +287,23 @@ namespace WinS_ABIS_APi
                     m_nEYE += Constants.IS_EYE_LEFT;
 
                     var picLeftEye = Helper.RawToBitmap((byte[])objLeftIrisImage, 640, 480, PixelFormat.Format8bppIndexed);
-                    WinS_ABIS_APi.Program._capturedImage.RawLeftIris = (byte[])objLeftIrisImage;
+                    IRIS_WinService.Program._capturedImage.RawLeftIris = (byte[])objLeftIrisImage;
  
                 }
                  
             }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+            }
             finally
             {
-  
-                WinS_ABIS_APi.Program.m_pRightIrisImage = (byte[])objRightIrisImage;
-                WinS_ABIS_APi.Program.m_pLeftIrisImage = (byte[])objLeftIrisImage;
+
+                IRIS_WinService.Program.m_pRightIrisImage = (byte[])objRightIrisImage;
+                IRIS_WinService.Program.m_pLeftIrisImage = (byte[])objLeftIrisImage;
 
 
             }
@@ -266,29 +315,43 @@ namespace WinS_ABIS_APi
         {
 
             int nResult;
-            nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.Open();
-            nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.Open();
+            try
+            {
+                string ServiceURLPath = ConfigurationManager.AppSettings["UrlSelfHosting"];
 
-            var config = new HttpSelfHostConfiguration("http://localhost:1234");
-            config.EnableCors();
-            config.Formatters.JsonFormatter.SupportedMediaTypes.Add(new MediaTypeHeaderValue("text/html"));
+                //Logger.WriteLog("تم تشغيل الخدمة بصمات العين بنجاح");
+                
+                //nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.Open();
+                //nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.Open();
 
-            config.MaxReceivedMessageSize = 2147483647; // use config for this value
+
+                var config = new HttpSelfHostConfiguration(ServiceURLPath);
+                config.EnableCors();
+                config.Formatters.JsonFormatter.SupportedMediaTypes.Add(new MediaTypeHeaderValue("text/html"));
+
+                config.MaxReceivedMessageSize = 2147483647; // use config for this value
 
 
-            config.Routes.MapHttpRoute(
-                name : "API",
-                routeTemplate: "api/{controller}/{action}/{id}", 
-                defaults : new { controller = "Home", id = RouteParameter.Optional }
-                );
+                config.Routes.MapHttpRoute(
+                    name: "API",
+                    routeTemplate: "api/{controller}/{action}/{id}",
+                    defaults: new { controller = "Home", id = RouteParameter.Optional }
+                    );
 
-            HttpSelfHostServer server = new HttpSelfHostServer(config);
-            server.OpenAsync().Wait();
+                HttpSelfHostServer server = new HttpSelfHostServer(config);
+                server.OpenAsync().Wait();
 
-            //WriteToFile("api http://localhost:1234 in done to calling" + DateTime.Now);
+                //WriteToFile("api http://localhost:1234 in done to calling" + DateTime.Now);
 
+            }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+               
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine  + stackTrace);
            
-
+            }
+            
         }
 
         protected override void OnStop()

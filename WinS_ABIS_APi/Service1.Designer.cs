@@ -1,5 +1,5 @@
 ﻿
-namespace WinS_ABIS_APi
+namespace IRIS_WinService
 {
     partial class Service1
     {

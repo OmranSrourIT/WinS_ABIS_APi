@@ -4,12 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Web.Http;
-using WinS_ABIS_APi.ABIS_API;
+using IRIS_WinService.ABIS_API;
 using R100ManagerSDKLib;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
-using WinS_ABIS_APi.HandleingCalsses;
+using IRIS_WinService.HandleingCalsses;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Drawing2D;
@@ -24,8 +24,11 @@ using IRIS_API.configrationClass;
 using Newtonsoft.Json.Linq;
 using System.Web.Script.Serialization;
 using IRIS_IDataMain.configrationClass;
+using System.Diagnostics;
+using IRIS_WinService.HandleingCalsses;
+using System.Configuration;
 
-namespace WinS_ABIS_APi
+namespace IRIS_WinService
 {
     public class HomeController : ApiController
     {
@@ -40,18 +43,33 @@ namespace WinS_ABIS_APi
         [EnableCors(origins: "*", headers: "*", methods: "*")]
         [System.Web.Http.HttpGet]
         public HttpResponseMessage GetAllImage_Live()
-        { 
-            if (Service1.InserImage.Count > 0)
+        {
+            try
             {
-                for (var i = 0; i <= Service1.InserImage.Count; i++)
+                if (Service1.InserImage.Count > 0)
                 {
-                    return Request.CreateResponse(HttpStatusCode.OK, Service1.InserImage[i], Configuration.Formatters.JsonFormatter);
+                    for (var i = 0; i <= Service1.InserImage.Count; i++)
+                    {
+                        return Request.CreateResponse(HttpStatusCode.OK, Service1.InserImage[i], Configuration.Formatters.JsonFormatter);
+
+                    }
 
                 }
 
+
+            }
+            catch(Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+               
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+                return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
+
             }
 
-              return Request.CreateResponse(HttpStatusCode.OK, Service1.InserImage.Count, Configuration.Formatters.JsonFormatter);
+            return Request.CreateResponse(HttpStatusCode.OK, Service1.InserImage.Count, Configuration.Formatters.JsonFormatter);
         }
 
         [EnableCors(origins: "*", headers: "*", methods: "*")]
@@ -62,11 +80,15 @@ namespace WinS_ABIS_APi
          SigBase64Left = "";
          SigBase64Right = "";
 
+             int nVolume = 9;
 
-        int nResult = 0;
+             var nResult2 = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.SetSoundVolume(9);
+            var nResult3 = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.SetSoundVolume(9);
+             
+            int nResult = 0;
             int nPurpose, nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive;
             int cmbCaptureWhichEye = WhichEye;
-            int txtCaptureTimeOut = 5;
+            int txtCaptureTimeOut = 20;
             nPurpose = Constants.IS_ENROLLMENT; //(cmbCapturePurpose.SelectedIndex == 0 ? Constants.IS_ENROLLMENT : Constants.IS_RECOGNITION);
             m_nIrisType = Constants.IS_IRIS_IMAGE; // (cmbCaptureIrisType.SelectedIndex == 0 ? Constants.IS_IRIS_IMAGE : Constants.IS_IRIS_TEMPLATE);
             nCounterMeasureLevel = Constants.IS_FED_LEVEL_1;// (cmbCaptureCounterMeasureLevel.SelectedIndex == 0 ? Constants.IS_FED_LEVEL_1 : Constants.IS_FED_LEVEL_2);
@@ -111,15 +133,15 @@ namespace WinS_ABIS_APi
                 nTimeOut = Convert.ToInt32(txtCaptureTimeOut);
 
 
-                WinS_ABIS_APi.Program.m_pRightIrisImage = null;
-                WinS_ABIS_APi.Program.m_pLeftIrisImage = null;
+                IRIS_WinService.Program.m_pRightIrisImage = null;
+                IRIS_WinService.Program.m_pLeftIrisImage = null;
                  
                 if(nWhichEye == 0)
-                {
+                { 
                     return Request.CreateResponse(HttpStatusCode.OK, "Eyes not Found", Configuration.Formatters.JsonFormatter);
                 }
                 // IrisImage
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.StartIrisCapture(nPurpose, m_nIrisType, nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive);
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.StartIrisCapture(nPurpose, m_nIrisType, nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive);
 
 
                 if (nResult != Constants.IS_ERROR_NONE)
@@ -130,18 +152,17 @@ namespace WinS_ABIS_APi
                 }
 
 
-                WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_CENTER_EYES_IN_MIRROR, Constants.IS_IND_NONE);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_CENTER_EYES_IN_MIRROR, Constants.IS_IND_NONE);
                 await Task.Delay(10000);
-                
 
-
+                 
                 ////////////IRIS IMAGE ////////////////////////////////////////
 
                 // Get Image Right
-                if (WinS_ABIS_APi.Program.m_pRightIrisImage != null)
+                if (IRIS_WinService.Program.m_pRightIrisImage != null)
                 {
 
-                    Image imageIris_Right = Helper.RawToBitmap(WinS_ABIS_APi.Program.m_pRightIrisImage, 640, 480, PixelFormat.Format8bppIndexed);
+                    Image imageIris_Right = Helper.RawToBitmap(IRIS_WinService.Program.m_pRightIrisImage, 640, 480, PixelFormat.Format8bppIndexed);
 
                     using (var ms = new MemoryStream())
                     {
@@ -166,10 +187,10 @@ namespace WinS_ABIS_APi
 
                 // Get Image Left 
 
-                if (WinS_ABIS_APi.Program.m_pLeftIrisImage != null)
+                if (IRIS_WinService.Program.m_pLeftIrisImage != null)
                 {
 
-                    Image imageIris_Left = Helper.RawToBitmap(WinS_ABIS_APi.Program.m_pLeftIrisImage, 640, 480, PixelFormat.Format8bppIndexed);
+                    Image imageIris_Left = Helper.RawToBitmap(IRIS_WinService.Program.m_pLeftIrisImage, 640, 480, PixelFormat.Format8bppIndexed);
                     using (var ms = new MemoryStream())
                     {
 
@@ -189,16 +210,19 @@ namespace WinS_ABIS_APi
 
                 }
 
-                //call api Check Quailty from URL  "http://localhost:99/api/IRISID/PassImageIRIS_IDATA1";
+                //call api Check Quailty from URL  "http://localhost:55555/api/IRISID/PassImageIRIS_IDATA1";
+                //ttp://10.130.149.200/IRISIDATAWeb
 
-                var BaseAddress = new Uri("http://localhost:55555/api/IRISID/PassImageIRIS_IDATA");
+                var URLCapture = ConfigurationManager.AppSettings["UrlCaptureEyes"];
+
+                var BaseAddress = new Uri(URLCapture);
 
 
                 IList<string> postData = new List<string> {
-                SigBase64Left , SigBase64Right
+                SigBase64Left , SigBase64Right , QualityValue
                 };
 
-
+               
                 using (var client = new HttpClient())
                 { 
                     HttpResponseMessage response = client.PostAsync(BaseAddress, postData, new JsonMediaTypeFormatter()).Result;
@@ -208,6 +232,16 @@ namespace WinS_ABIS_APi
                     var  ResponseImagess = js.Deserialize<List<ResponseImage>>(ResultResponseEyeQuality);
                     if(ResponseImagess.Count > 0)
                     {
+                        if(ResponseImagess[0].ImageQuailtyLeft !="0" && ResponseImagess[0].ImageQuailtyRight != "0")
+                        {
+                            IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_FINISH_IRIS_CAPTURE, Constants.IS_IND_NONE);
+
+                        }else
+                        {
+                            nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                            nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Open();
+                        }
+
                         return Request.CreateResponse(HttpStatusCode.OK, ResponseImagess, Configuration.Formatters.JsonFormatter);
                     }
                     
@@ -216,11 +250,13 @@ namespace WinS_ABIS_APi
 
             }
             catch (Exception ex)
-            {
-                 
-
+            { 
+                var stackTrace = new StackTrace(ex, true);
+                var frame = stackTrace.GetFrame(0);
+                var line = frame.GetFileLineNumber();
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace + "Line" + line);
+               
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
-
             }
 
             
@@ -235,12 +271,21 @@ namespace WinS_ABIS_APi
         public HttpResponseMessage VerifyIRISEyesCapture(List<string> eyes)
         {
 
+            int nResult = 0;
+
             var LeftIMageFomSystem = eyes[0];
             var RightIMageFomSystem = eyes[1];
+
             var ResultResponseMatchs = "";
             try
             {
-                var BaseAddress = new Uri("http://localhost:55555/api/IRISID/VerificationIRISIDATA");
+
+                // Localhost http://localhost:55555/api/IRISID
+                // Server http://10.130.149.200/IRISIDATAWeb/api/IRISID
+
+                var URLCapture = ConfigurationManager.AppSettings["UrlCaptureVerify"];
+
+                var BaseAddress = new Uri(URLCapture);
 
 
                 IList<string> postData = new List<string> {
@@ -263,10 +308,26 @@ namespace WinS_ABIS_APi
             }
             catch (Exception ex)
             {
+                var stackTrace = new StackTrace(ex, true);
+
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
 
                 return Request.CreateResponse(HttpStatusCode.OK, "Error occoured" + ex.Message, Configuration.Formatters.JsonFormatter);
 
             }
+             
+            
+            
+
+            if(ResultResponseMatchs == "true")
+            { 
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_VERIFIED, Constants.IS_IND_SUCCESS);
+            }
+            else
+            { 
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_NOT_VERIFY, Constants.IS_IND_FAILURE);
+            } 
             return Request.CreateResponse(HttpStatusCode.OK, ResultResponseMatchs, Configuration.Formatters.JsonFormatter);
 
         }
@@ -277,19 +338,34 @@ namespace WinS_ABIS_APi
         {
             int nResult;
 
-            nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.Open();
-            if (nResult != 0)
+            try
             {
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.Close();
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.Open();
-                ErrorMessage.Add(((Constants.Error)nResult).ToString());
+
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Open();
+                if (nResult != 0)
+                {
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.Close();
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Open();
+                    ErrorMessage.Add(((Constants.Error)nResult).ToString());
+
+                    return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+                }
+                ErrorMessage.Add("ConnectionSuccssfult");
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.StartFaceCapture();
 
                 return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
-            }
-            ErrorMessage.Add("ConnectionSuccssfult");
-            nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.StartFaceCapture();
 
-            return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+            }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+                return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
+            }
+
+            
         }
 
 
@@ -298,21 +374,37 @@ namespace WinS_ABIS_APi
         public HttpResponseMessage OpenDeviceIRIS_CAMERA()
         {
             int nResult;
-            
-             nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.Open();
-            if(nResult !=0)
-            {
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.Close();
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.Open();
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.StartFaceCapture();
-                ErrorMessage.Add(((Constants.Error)nResult).ToString());
-         
-                return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
-            }
-            ErrorMessage.Add("ConnectionSuccssfult");
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.StartFaceCapture();
 
-            return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+            try
+            {
+
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.Open();
+                if (nResult != 0)
+                {
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.Open();
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.StartFaceCapture();
+                    ErrorMessage.Add(((Constants.Error)nResult).ToString());
+
+                    return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+                }
+                ErrorMessage.Add("ConnectionSuccssfult");
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.StartFaceCapture();
+
+                return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+
+            }
+            catch(Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+
+                return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
+
+            }
+            
+            
         }
 
 
@@ -320,13 +412,17 @@ namespace WinS_ABIS_APi
         [System.Web.Http.HttpGet]
         public HttpResponseMessage StopLiveImage_Capture()
         {
+            int nResult;
             try
             {
-                int nResult;
-                nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAPTURE.Close(); 
+               
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close(); 
             }
             catch(Exception ex)
             {
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                var stackTrace = new StackTrace(ex, true); 
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
             }
             
@@ -347,13 +443,16 @@ namespace WinS_ABIS_APi
                 //int nStrobe = 2;
 
                 //nResult = WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.StopFaceCapture(nImageType, nStrobe);
-               // WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.ControlIndicator(Constants.IS_SND_VERIFIED, Constants.IS_IND_SUCCESS);
-                WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.ControlIndicator(Constants.IS_SND_CAMERA_SHUTTER, Constants.IS_IND_NONE);
+                // WinS_ABIS_APi.Program._iCAMR100DeviceControl_CAMERA.ControlIndicator(Constants.IS_SND_VERIFIED, Constants.IS_IND_SUCCESS);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.ControlIndicator(Constants.IS_SND_CAMERA_SHUTTER, Constants.IS_IND_NONE);
 
 
             }
             catch (Exception ex)
             {
+                var stackTrace = new StackTrace(ex, true);
+
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
             }
 
@@ -364,9 +463,19 @@ namespace WinS_ABIS_APi
         
         public string ProcessError(int errorCode)
         {
-            oApi.IsError = true;
-            oApi.ErrorMessage = ((Constants.Error)errorCode).ToString() + "(" + errorCode + ")" + Constants.TITLE;
+            try
+            {
+                oApi.IsError = true;
+                oApi.ErrorMessage = ((Constants.Error)errorCode).ToString() + "(" + errorCode + ")" + Constants.TITLE;
 
+            }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+            }
+           
             return oApi.ErrorMessage;
         }
 

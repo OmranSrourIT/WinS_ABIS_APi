@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinS_ABIS_APi.HandleingCalsses
+namespace IRIS_WinService.HandleingCalsses
 {
    internal class Helper
     {
