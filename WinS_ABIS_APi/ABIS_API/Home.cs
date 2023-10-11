@@ -28,14 +28,17 @@ using System.Diagnostics;
 using IRIS_WinService.HandleingCalsses;
 using System.Configuration;
 using System.ServiceProcess;
+using WinS_ABIS_APi.HandleingCalsses;
 
 namespace IRIS_WinService
 {
     public class HomeController : ApiController
     {
 
-       public static string SigBase64Left = "";
+        CHostDBCtrl m_HostDBControl;
+        public static string SigBase64Left = "";
         public static string SigBase64Right = "";
+        public static string WichEyesforEnroll = "";
 
         ApiResult oApi = new ApiResult();
         List<string> ErrorMessage = new List<string>();
@@ -47,7 +50,7 @@ namespace IRIS_WinService
         {
             try
             {
-                 
+
                 if (Service1.InserImage.Count > 0)
                 {
                     for (var i = 0; i <= Service1.InserImage.Count; i++)
@@ -60,11 +63,11 @@ namespace IRIS_WinService
 
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 var stackTrace = new StackTrace(ex, true);
 
-               
+
                 Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
 
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
@@ -76,20 +79,20 @@ namespace IRIS_WinService
 
         [EnableCors(origins: "*", headers: "*", methods: "*")]
         [System.Web.Http.HttpGet]
-        public async Task<HttpResponseMessage> IrisCapture(int WhichEye , string QualityValue)
+        public async Task<HttpResponseMessage> IrisCapture(int WhichEye, string QualityValue)
         {
-             
-         SigBase64Left = "";
-         SigBase64Right = "";
-
+            m_HostDBControl = new CHostDBCtrl();
+            SigBase64Left = "";
+            SigBase64Right = "";
+           string strValue = "";
             int nResult = 0;
             int nVolume = 9;
 
-             
+            int m_nNumOfUser;
+            WichEyesforEnroll = WhichEye.ToString();
+            var nResult2 = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.SetSoundVolume(8);
+            var nResult3 = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.SetSoundVolume(8);
 
-            var nResult2 = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.SetSoundVolume(9);
-            var nResult3 = IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.SetSoundVolume(9);
-             
             int nPurpose, nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive;
             int cmbCaptureWhichEye = WhichEye;
             int txtCaptureTimeOut = 20;
@@ -102,11 +105,52 @@ namespace IRIS_WinService
 
             ImageArr imgObjRight = new ImageArr();
             ImageArr imgObjLeft = new ImageArr();
-             
-            List<ImageArr> ImageArrObj = new List<ImageArr>();
+
+            List<ImageArr> ImageArrObj = new List<ImageArr>(); 
             try
             {
-                 
+               
+
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.DownloadUserDB(out m_nNumOfUser);
+
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.GetSerialNumber(out strValue);
+
+                if (nResult != Constants.IS_ERROR_NONE)
+                {
+                    var ErrorMessage = "Error occurred";
+                    strValue = "Failure Code : " + nResult; 
+                    Logger.WriteLog("ErrorMessage" + strValue);
+
+                    return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+                }
+                else
+                {
+                    nResult = m_HostDBControl.Open(strValue);
+
+                    if (nResult != Constants.IS_ERROR_NONE)
+                    {
+                        var ErrorMessage = "Error occurred";
+                        var ErrorMessageBox =  "There is a problem using the database";
+                        nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                        Logger.WriteLog("ErrorMessage" + ErrorMessageBox);
+                        return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+                    }
+                       
+
+                }
+
+
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ClearUserDB();
+                nResult = m_HostDBControl.DeleteAllUserInfo();
+
+                if (nResult != Constants.IS_ERROR_NONE)
+                {
+                    var ErrorMessage = "Error occurred";
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                    Logger.WriteLog("ErrorMessage" + ErrorMessage);
+                    return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+
+                }
 
                 switch (cmbCaptureWhichEye)
                 {
@@ -129,9 +173,9 @@ namespace IRIS_WinService
 
                 if (txtCaptureTimeOut <= 0)
                 {
-                    var ErrorMessage = Constants.TITLE;
-                     
-                    return  Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
+                    var ErrorMessage = "Error occurred";
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                    return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
                 }
 
                 nTimeOut = Convert.ToInt32(txtCaptureTimeOut);
@@ -139,27 +183,40 @@ namespace IRIS_WinService
 
                 IRIS_WinService.Program.m_pRightIrisImage = null;
                 IRIS_WinService.Program.m_pLeftIrisImage = null;
-                 
-                if(nWhichEye == 0)
-                { 
+
+                IRIS_WinService.Program.m_pLeftIrisTemplate = null;
+                IRIS_WinService.Program.m_pRightIrisTemplate = null;
+
+                if (nWhichEye == 0)
+                {
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+
                     return Request.CreateResponse(HttpStatusCode.OK, "Eyes not Found", Configuration.Formatters.JsonFormatter);
                 }
+
+
                 // IrisImage
-                nResult =  IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.StartIrisCapture(nPurpose, m_nIrisType, nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive);
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.EnrollUser("1", nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive, 0, 0);
+
+              //  nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.StartIrisCapture(nPurpose, m_nIrisType, nWhichEye, nCounterMeasureLevel, nLensDetectionLevel, nTimeOut, nIsAuditFace, nIsLive);
 
 
                 if (nResult != Constants.IS_ERROR_NONE)
                 {
+                    var ErrorMessage = "Error occurred";
                     var Error = ProcessError(nResult);
-                     
-                    return Request.CreateResponse(HttpStatusCode.OK, Error, Configuration.Formatters.JsonFormatter);
+                    Logger.WriteLog("ErrorMessage" + Error);
+                    IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ClearUserDB();
+                    nResult = m_HostDBControl.DeleteAllUserInfo();
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
+                    return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
                 }
 
-
                 IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_CENTER_EYES_IN_MIRROR, Constants.IS_IND_NONE);
-                await Task.Delay(10000);
 
-                 
+                 await Task.Delay(10000);
+
+
                 ////////////IRIS IMAGE ////////////////////////////////////////
 
                 // Get Image Right
@@ -220,41 +277,44 @@ namespace IRIS_WinService
                 var URLCapture = ConfigurationManager.AppSettings["UrlCaptureEyes"];
 
                 var BaseAddress = new Uri(URLCapture);
-
-
+                 
                 IList<string> postData = new List<string> {
                 SigBase64Left , SigBase64Right , QualityValue
                 };
 
-               
+
                 using (var client = new HttpClient())
-                { 
+                {
                     HttpResponseMessage response = client.PostAsync(BaseAddress, postData, new JsonMediaTypeFormatter()).Result;
                     var ResultResponseEyeQuality = response.Content.ReadAsStringAsync().Result;
                     JavaScriptSerializer js = new JavaScriptSerializer();
-                   
-                    var  ResponseImagess = js.Deserialize<List<ResponseImage>>(ResultResponseEyeQuality);
-                    if(ResponseImagess.Count > 0)
+
+                    var ResponseImagess = js.Deserialize<List<ResponseImage>>(ResultResponseEyeQuality);
+                    if (ResponseImagess.Count > 0)
                     {
-                        if(ResponseImagess[0].ImageQuailtyLeft !="0" && ResponseImagess[0].ImageQuailtyRight != "0" && Convert.ToInt32( ResponseImagess[0].ImageQuailtyLeft) >= 75 && Convert.ToInt32(ResponseImagess[0].ImageQuailtyRight) >= 75)
+                        if (ResponseImagess[0].ImageQuailtyLeft != "0" && ResponseImagess[0].ImageQuailtyRight != "0" && Convert.ToInt32(ResponseImagess[0].ImageQuailtyLeft) >= 75 && Convert.ToInt32(ResponseImagess[0].ImageQuailtyRight) >= 75)
                         {
                             IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_FINISH_IRIS_CAPTURE, Constants.IS_IND_NONE);
+                            IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ClearUserDB();
+                            nResult = m_HostDBControl.DeleteAllUserInfo();
 
                         }
                         else
                         {
                             IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_TRY_AGAIN, Constants.IS_IND_NONE);
+                            IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ClearUserDB();
+                            nResult = m_HostDBControl.DeleteAllUserInfo();
                         }
                         nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
                         return Request.CreateResponse(HttpStatusCode.OK, ResponseImagess, Configuration.Formatters.JsonFormatter);
                     }
-                    
+
 
                 }
 
             }
             catch (Exception ex)
-            { 
+            {
                 var stackTrace = new StackTrace(ex, true);
                 var frame = stackTrace.GetFrame(0);
                 var line = frame.GetFileLineNumber();
@@ -263,11 +323,14 @@ namespace IRIS_WinService
                 return Request.CreateResponse(HttpStatusCode.OK, "Error occurred", Configuration.Formatters.JsonFormatter);
             }
 
-            
+
 
             return Request.CreateResponse(HttpStatusCode.OK, "", Configuration.Formatters.JsonFormatter);
 
         }
+
+
+      
 
         [EnableCors(origins: "*", headers: "*", methods: "*")]
         [System.Web.Http.HttpPost]
@@ -276,6 +339,10 @@ namespace IRIS_WinService
         {
 
             int nResult = 0;
+            ObjImagesDeviceSystem ImgOBJNEW = new ObjImagesDeviceSystem();
+
+          
+
 
             var LeftIMageFomSystem = eyes[0];
             var RightIMageFomSystem = eyes[1];
@@ -284,7 +351,14 @@ namespace IRIS_WinService
             try
             {
 
-                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Open();
+
+                ImgOBJNEW.LeftEyeFromSystem = LeftIMageFomSystem;
+                ImgOBJNEW.RightFromSystem = RightIMageFomSystem;
+
+                ImgOBJNEW.LeftEyeFromDevice = IRIS_WinService.Program.m_pLeftIrisTemplate;
+                ImgOBJNEW.RightEyeFromDevice = IRIS_WinService.Program.m_pRightIrisTemplate;
+
+              nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Open();
                 // Localhost http://localhost:55555/api/IRISID
                 // Server http://10.130.149.200/IRISIDATAWeb/api/IRISID
 
@@ -293,32 +367,32 @@ namespace IRIS_WinService
                 var BaseAddress = new Uri(URLCapture);
 
 
-                IList<string> postData = new List<string> {
-                    //From Sytem
-                 LeftIMageFomSystem  , RightIMageFomSystem, 
-                //From IRIS Device
-                  SigBase64Left , SigBase64Right
-                };
+                //IList<string> postData = new List<string> {
+                //    //From Sytem
+                // LeftIMageFomSystem  , RightIMageFomSystem, 
+                ////From IRIS Device
+                //  SigBase64Left , SigBase64Right
+                //};
 
 
                 using (var client = new HttpClient())
                 {
-                    HttpResponseMessage response = client.PostAsync(BaseAddress, postData, new JsonMediaTypeFormatter()).Result;
-                     ResultResponseMatchs = response.Content.ReadAsStringAsync().Result;
-                      
+                    HttpResponseMessage response = client.PostAsync(BaseAddress, ImgOBJNEW, new JsonMediaTypeFormatter()).Result;
+                    ResultResponseMatchs = response.Content.ReadAsStringAsync().Result;
+
                 }
-                 
-                    if (ResultResponseMatchs == "true")
-                    {
 
-                        IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_VERIFIED, Constants.IS_IND_NONE);
-                      
-                    }
-                    else
-                    {
-                        IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_NOT_VERIFY, Constants.IS_IND_NONE);
+                if (ResultResponseMatchs == "true")
+                {
 
-                    }
+                    IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_VERIFIED, Constants.IS_IND_NONE);
+
+                }
+                else
+                {
+                    IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_NOT_VERIFY, Constants.IS_IND_NONE);
+
+                }
 
                 nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
 
@@ -337,7 +411,7 @@ namespace IRIS_WinService
                 return Request.CreateResponse(HttpStatusCode.OK, "Error occoured" + ex.Message, Configuration.Formatters.JsonFormatter);
 
             }
-            
+
 
         }
 
@@ -369,12 +443,12 @@ namespace IRIS_WinService
             {
                 var stackTrace = new StackTrace(ex, true);
 
-               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
 
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
             }
 
-            
+
         }
 
 
@@ -403,17 +477,17 @@ namespace IRIS_WinService
                 return Request.CreateResponse(HttpStatusCode.OK, ErrorMessage, Configuration.Formatters.JsonFormatter);
 
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 var stackTrace = new StackTrace(ex, true);
 
-               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
 
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
 
             }
-            
-            
+
+
         }
 
 
@@ -424,20 +498,20 @@ namespace IRIS_WinService
             int nResult;
             try
             {
-               
-                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close(); 
+
+                nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.Close();
-                var stackTrace = new StackTrace(ex, true); 
-               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+                var stackTrace = new StackTrace(ex, true);
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
             }
-            
+
 
             return Request.CreateResponse(HttpStatusCode.OK, "Closed Successfuly", Configuration.Formatters.JsonFormatter);
-             
+
         }
 
         [EnableCors(origins: "*", headers: "*", methods: "*")]
@@ -461,7 +535,7 @@ namespace IRIS_WinService
             {
                 var stackTrace = new StackTrace(ex, true);
 
-               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
                 return Request.CreateResponse(HttpStatusCode.OK, ex.Message, Configuration.Formatters.JsonFormatter);
             }
 
@@ -481,9 +555,9 @@ namespace IRIS_WinService
             {
                 var stackTrace = new StackTrace(ex, true);
 
-               Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
+                Logger.WriteLog("ErrorMessage" + Environment.NewLine + ex.Message + Environment.NewLine + stackTrace);
             }
-           
+
             return oApi.ErrorMessage;
         }
 

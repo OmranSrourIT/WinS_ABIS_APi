@@ -318,6 +318,7 @@
     <Compile Include="HandleingCalsses\Constants.cs" />
     <Compile Include="HandleingCalsses\Helper.cs" />
     <Compile Include="HandleingCalsses\Logger.cs" />
+    <Compile Include="HandleingCalsses\ObjImagesDeviceSystem.cs" />
     <Compile Include="HandleingCalsses\ResponseImage.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>

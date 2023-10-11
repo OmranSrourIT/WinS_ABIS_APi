@@ -25,7 +25,13 @@ namespace IRIS_WinService
 
         public static byte[] m_pLeftIrisImage;
         public static byte[] m_pRightIrisImage;
-         
+
+        public static byte[] m_pRightIrisTemplate;
+        public static byte[] m_pLeftIrisTemplate;
+
+        
+            
+
 
         //To Quailty Eyes GET For both eyes
         public static int IMAGE_RightIrisQualityValue;

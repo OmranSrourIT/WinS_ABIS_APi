@@ -20,6 +20,7 @@ using System.Web.Http.SelfHost;
 using IRIS_WinService.ABIS_API;
 using IRIS_WinService.HandleingCalsses;
 using IRIS_WinService;
+using System.Runtime.InteropServices;
 
 namespace IRIS_WinService
 {
@@ -83,12 +84,17 @@ namespace IRIS_WinService
             try
             {
                 HomeController obj = new HomeController();
+                m_HostDBControl = new CHostDBCtrl();
 
                 InitializeComponent();
+             
                 IRIS_WinService.Program._iCAMR100DeviceControl_CAMERA.OnGetLiveImage += new _IR100DeviceControlEvents_OnGetLiveImageEventHandler(OnGetLiveImage);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnEnrollReport += new _IR100DeviceControlEvents_OnEnrollReportEventHandler(OnEnrollReport);
                 IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnGetIrisImage += new _IR100DeviceControlEvents_OnGetIrisImageEventHandler(OnGetIrisImage);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnGetIrisTemplate += new _IR100DeviceControlEvents_OnGetIrisTemplateEventHandler(OnGetIrisTemplate);
                 IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnMatchReport += new _IR100DeviceControlEvents_OnMatchReportEventHandler(OnMatchReport);
                 IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnCaptureReport += new _IR100DeviceControlEvents_OnCaptureReportEventHandler(OnCaptureReport);
+                IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.OnUserDB += new _IR100DeviceControlEvents_OnUserDBEventHandler(OnUserDB);
 
 
             }
@@ -104,6 +110,357 @@ namespace IRIS_WinService
 
         }
         ImageConverter imgcvt = new ImageConverter();
+
+        private void OnUserDB(int nNumOfUser, int nSizeOfUserDB, object pUserDB)
+        {
+            int nResult = 0;
+
+            Console.WriteLine("OnUserDB ");
+
+            if (m_nStatus == FILE_SAVE)
+            {
+                if (nNumOfUser == 0)
+                {
+                   // MessageBox.Show("Database is empty!", Constants.TITLE, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                else
+                {
+                    if (Helper.ByteArrayToFile(".", "DB.dat", (byte[])pUserDB))
+                    {
+                        
+
+                      //  if (MessageBox.Show("Download complete.( DB.dat ) \n Do you want synchronization?", Constants.TITLE, MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                   //     {
+                            nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.DownloadUserDB(out m_nNumOfUser);
+
+                            if (nResult == Constants.IS_ERROR_NONE)
+                            {
+                                if (m_nNumOfUser > 0)
+                                    m_nStatus = COMPARE;
+                                else
+                                    m_nStatus = ALL_DELETE;
+                            }
+                       // }
+                    }
+                }
+
+
+            }
+            else
+            {
+                stUSERINFO st;
+                string[,] strUserDB;
+                int nSize;
+                int nNumOfUser_Device = nNumOfUser;
+                st = default(stUSERINFO);
+                nSize = Marshal.SizeOf(st);
+
+
+                strUserDB = new string[nNumOfUser_Device, 3];
+
+                int dw = System.Environment.TickCount; //tick
+
+                for (int i = 0; i < nNumOfUser_Device; i++)
+                {
+                    //    ListViewItem item;
+
+                    IntPtr iPtr = Marshal.AllocHGlobal(nSize);
+                    Marshal.Copy((byte[])pUserDB, i * nSize, iPtr, nSize);
+
+                    st = (stUSERINFO)Marshal.PtrToStructure(iPtr, typeof(stUSERINFO));
+
+
+                    strUserDB[i, 0] = Convert.ToString(st.pID);
+                    strUserDB[i, 1] = Convert.ToString(st.pInsertDate);
+                    strUserDB[i, 2] = Convert.ToString(st.pUpdateDate);
+
+                }
+
+
+                if (!m_HostDBControl.IsAvailable())
+                {
+                    //SetUIOnConnect();
+                    return;
+                }
+
+                bool[] bIsExist_Host;
+                bool[] bIsExist_Device;
+
+                if (m_nStatus == COMPARE)
+                {
+                    if (m_HostDBControl.IsNewDB())
+                        m_nStatus = ALL_INSERT;
+                    else
+                    {
+
+                        int nNumOfUser_Host;
+                        string[,] strUserDB_Host;
+
+                        nResult = m_HostDBControl.LoadEnrolledUserID(out nNumOfUser_Host, out strUserDB_Host);
+
+                        if (nNumOfUser_Host == 0)
+                        {
+                            m_nStatus = ALL_INSERT;
+                        }
+                        else
+                        {
+                            int nInsertUser = 0;
+                            string[,] strInsertUserInfo = new string[nNumOfUser, 3];
+
+                            bIsExist_Host = new bool[nNumOfUser_Host];
+                            bIsExist_Device = new bool[nNumOfUser];
+
+                            for (int i = 0; i < nNumOfUser; i++)
+                            {
+                                for (int j = 0; j < nNumOfUser_Host; j++)
+                                {
+                                    if ((strUserDB[i, 0] == strUserDB_Host[j, 0]))
+                                    {
+                                        if ((strUserDB[i, 1] == strUserDB_Host[j, 1]))
+                                        {
+                                            bIsExist_Device[i] = true;
+                                            bIsExist_Host[j] = true;
+
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                if (bIsExist_Device[i] == false)
+                                {
+                                    strInsertUserInfo[nInsertUser, 0] = strUserDB[i, 0];
+                                    strInsertUserInfo[nInsertUser, 1] = strUserDB[i, 1];
+                                    strInsertUserInfo[nInsertUser, 2] = strUserDB[i, 2];
+                                    nInsertUser++;
+                                }
+                            }
+
+
+                            int nCheck = 0;
+
+                            for (int i = 0; i < nNumOfUser_Host; i++)
+                            {
+                                if (bIsExist_Host[i] == false)
+                                {
+                                    nCheck++;
+                                    m_HostDBControl.DeleteUserInfo(strUserDB_Host[i, 0]);
+                                }
+                            }
+
+
+                            if (nInsertUser > 0)
+                            {
+                                m_HostDBControl.InsertDownloadedghadoUserInfo(nInsertUser, strInsertUserInfo);
+                            }
+
+                            m_nStatus = FINISH;
+
+                        }
+
+                    }
+
+                    if (m_nStatus == ALL_INSERT)
+                    {
+                        m_HostDBControl.InsertDownloadedghadoUserInfo(nNumOfUser, strUserDB);
+                        m_nStatus = FINISH;
+                    }
+                }
+                else if (m_nStatus == ALL_DELETE)
+                {
+                    if (!m_HostDBControl.IsNewDB())
+                    {
+                        m_HostDBControl.DeleteAllUserInfo();
+
+                    }
+
+                    m_nStatus = FINISH;
+
+                }
+
+             //   LoadEnrolledUserInfo();
+
+              //  SetUIOnConnect();
+
+            }
+
+          
+
+        }
+
+
+        private void OnEnrollReport(int nReportResult, int nFailureCode, int nRightIrisQualityValue, int nLeftIrisQualityValue, string strMatchedUserID)
+        {
+            Console.WriteLine("OnEnrollReport");
+            try
+            {
+                int nResult;
+                stUSERINFO stEnrolledUserInfo;
+                string[] strUserInfo;
+                string strRPath = string.Empty;
+                string strLPath = string.Empty;
+                string strFacePath = string.Empty;
+                int m_nEYE = 0;
+
+
+                //initFrameIrisCamera();
+
+                //  labEnrollResult.Text = string.Empty;
+
+                //  labQuality.Show();
+
+                if (nRightIrisQualityValue != 0)
+                {
+                    //     prgRQuality.Show();
+                    //    prgRQuality.Value = nRightIrisQualityValue;
+                    //    labRightQualityValue.Text = nRightIrisQualityValue.ToString();
+                }
+
+                if (nLeftIrisQualityValue != 0)
+                {
+                    //     prgLQuality.Show();
+                    //    prgLQuality.Value = nLeftIrisQualityValue;
+                    //  labLeftQualityValue.Text = nLeftIrisQualityValue.ToString();
+                }
+                if (nReportResult == Constants.IS_RST_SUCCESS)
+                {
+
+                    IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ClearUserDB();
+                    nResult = m_HostDBControl.DeleteAllUserInfo();
+
+                    if (nResult == Constants.IS_ERROR_NONE)
+                    {
+                        // LoadEnrolledUserInfo();
+                        // MessageBox.Show(this, " Delete complete.", Constants.TITLE, MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        Logger.WriteLog("ErrorMessage" + nResult); 
+                    }
+
+                    //    labEnrollResult.Text = "[OnEnrollReport]\n  nReportResult : Success\n";
+
+                    // IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_FINISH_IRIS_CAPTURE, Constants.IS_IND_SUCCESS);
+
+                    stEnrolledUserInfo = new stUSERINFO();
+
+                    nResult = IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.GetUserInfo("1", out stEnrolledUserInfo);
+
+                    if (nResult == Constants.IS_ERROR_NONE)
+                    {
+                        string guid = Guid.NewGuid().ToString();
+
+                        if (m_nEYE != Constants.IS_EYE_LEFT)
+                        {
+                            nResult = 0; //SaveIrisImage(_enrollmentImagesDirectory, "R" + m_strUserID + "_" + guid, _capturedImage.RawRightIris, out strRPath);
+
+                            if (nResult != Constants.IS_RST_SUCCESS)
+                            {
+                               // ProcessError(nResult);
+                                return;
+                            }
+                        }
+                        if (m_nEYE != Constants.IS_EYE_RIGHT)
+                        {
+                           //SaveIrisImage(_enrollmentImagesDirectory, "L" + m_strUserID + "_" + guid, _capturedImage.RawLeftIris, out strLPath);
+
+                            if (nResult != Constants.IS_RST_SUCCESS)
+                            {
+                              //  ProcessError(nResult);
+                                return;
+                            }
+                        }
+
+                        
+
+                        if (m_HostDBControl.IsAvailable())
+                        {
+                            m_HostDBControl.InsertUserInfo(m_strUserID, nRightIrisQualityValue, nLeftIrisQualityValue, strFacePath, strRPath, strLPath, Convert.ToString(stEnrolledUserInfo.pInsertDate), Convert.ToString(stEnrolledUserInfo.pUpdateDate));
+
+                            m_HostDBControl.SelectEnrolledUserInfo(m_strUserID, out strUserInfo);
+
+                           // ListViewItem item = new ListViewItem(strUserInfo[0]);
+                          //  item.SubItems.Add(strUserInfo[1]);
+                           // item.SubItems.Add(strUserInfo[2]);
+
+
+                         //   lstEnrolledUserInfo.Items.Add(item);
+
+                          //  txtUser_ID.Text = strUserInfo[1];
+
+                           // labRQuality.Text = strUserInfo[6];
+                           // labLQuality.Text = strUserInfo[7];
+
+                           // txtInsertDate.Text = strUserInfo[10];
+
+                           // picEnrolledAudit.ImageLocation = strUserInfo[3];
+                          //  picEnrolledREye.ImageLocation = strUserInfo[4];
+                         //   picEnrolledLEye.ImageLocation = strUserInfo[5];
+
+                        }
+
+                    }
+                    else
+                    {
+                        //ProcessError(nResult);
+                    }
+
+                }
+                else
+                {
+                  //  labEnrollResult.Text += "[OnEnrollReport]\n  FailureCode : " + ((Constants.Error)nFailureCode).ToString() + "\n";
+
+                    if (nFailureCode == Constants.IS_FAIL_ALREADY_EXIST)
+                    {
+                      //  labEnrollResult.Text += "  Already exist user. (User ID : " + strMatchedUserID + ")\n";
+                    }
+
+
+                    IRIS_WinService.Program._iCAMR100DeviceControl_CAPTURE.ControlIndicator(Constants.IS_SND_NONE, Constants.IS_IND_FAILURE);
+
+
+                }
+
+            }
+            finally
+            {
+                if (nReportResult != Constants.IS_RST_FAIL_STATUS)
+                {
+                    var cccc = nReportResult;
+                }
+                   // initFrameIrisCamera(true);
+            }
+
+
+        }
+
+
+
+
+
+        private void OnGetIrisTemplate(int nRightIrisFEDStatus, int nRightIrisLensStatus, int nRightIrisTemplateSize, object objRightIrisTemplate, int nLeftIrisFEDStatus, int nLeftIrisLensStatus, int nLeftIrisTemplateSize, object objLeftIrisTemplate)
+        {
+            
+            try
+            {
+                if (nRightIrisTemplateSize != 0)
+                {
+                    IRIS_WinService.Program.m_pRightIrisTemplate = (byte[])objRightIrisTemplate;
+                    
+                }
+
+                if (nLeftIrisTemplateSize != 0)
+                {
+                    IRIS_WinService.Program.m_pLeftIrisTemplate = (byte[])objLeftIrisTemplate;
+                }
+
+            }
+            catch (Exception ex)
+            {
+                var stackTrace = new StackTrace(ex, true);
+
+                Logger.WriteLog("ErrorMessage" + ex.Message + Environment.NewLine + stackTrace);
+            }
+             
+        }
+
+
         private void OnGetLiveImage(int nImageSize, object objLiveImage)
         {
             try
@@ -264,6 +621,7 @@ namespace IRIS_WinService
             }
         }
          
+
         private void OnGetIrisImage(int nRightIrisFEDStatus, int nRightIrisLensStatus, int nRightIrisImageSize, object objRightIrisImage, int nLeftIrisFEDStatus, int nLeftIrisLensStatus, int nLeftIrisImageSize, object objLeftIrisImage)
         {
             
